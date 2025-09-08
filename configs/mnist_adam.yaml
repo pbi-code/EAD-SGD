@@ -1,0 +1,23 @@
+# MNIST Adam configuration
+model: "LeNet"
+dataset: "MNIST"
+data_path: "./data"
+batch_size: 128
+num_workers: 4
+
+optimizer:
+  name: "Adam"
+  lr: 0.001
+  weight_decay: 0.0001
+  betas: [0.9, 0.999]
+
+training:
+  epochs: 50
+  scheduler:
+    type: "multistep"
+    milestones: [20, 35]
+    gamma: 0.2
+
+logging:
+  log_dir: "./logs/mnist_adam"
+  use_tensorboard: true

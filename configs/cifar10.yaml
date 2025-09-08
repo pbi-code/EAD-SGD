@@ -1,0 +1,29 @@
+# CIFAR-10 specific configuration
+model: "ResNet18"
+dataset: "CIFAR10"
+data_path: "./data"
+batch_size: 128
+num_workers: 4
+
+optimizer:
+  name: "EASGD"
+  lr: 0.1
+  momentum: 0.9
+  weight_decay: 0.0005
+  inner_lr: 0.1
+  inner_steps: 20
+  projection_freq: 5
+  k_sparsity: 0.1
+  gamma: 0.03
+  kfac_update_freq: 100
+
+training:
+  epochs: 200
+  scheduler:
+    type: "multistep"
+    milestones: [60, 120, 160]
+    gamma: 0.2
+
+logging:
+  log_dir: "./logs/cifar10"
+  use_tensorboard: true

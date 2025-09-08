@@ -1,0 +1,29 @@
+# configs/mnist_entropy_sgd_original.yaml
+model: "LeNet"
+dataset: "MNIST"
+data_path: "./data"
+batch_size: 128
+num_workers: 4
+
+optimizer:
+  name: "EntropySGD"  # EntropySGD original model
+  lr: 1.0
+  momentum: 0.9
+  weight_decay: 0
+  damp: 0
+  nesterov: true
+  L: 20
+  eps: 0.001
+  g0: 0.0001
+  g1: 0.001
+
+training:
+  epochs: 50
+  lr_schedule:
+    type: "step"
+    step_epochs: [2]
+    gamma: 0.1
+
+logging:
+  log_dir: "./logs/mnist_entropysgd"
+  use_tensorboard: true

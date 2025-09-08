@@ -1,0 +1,23 @@
+# MNIST SGD configuration
+model: "LeNet"
+dataset: "MNIST"
+data_path: "./data"
+batch_size: 128
+num_workers: 4
+
+optimizer:
+  name: "SGD"
+  lr: 0.01
+  momentum: 0.0
+  weight_decay: 0.0001
+
+training:
+  epochs: 10
+  scheduler:
+    type: "multistep"
+    milestones: [20, 35]
+    gamma: 0.2
+
+logging:
+  log_dir: "./logs/mnist_sgd"
+  use_tensorboard: true

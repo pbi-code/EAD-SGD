@@ -1,0 +1,36 @@
+# MNIST specific configuration
+model: "LeNet"
+dataset: "MNIST"
+data_path: "./data"
+batch_size: 128
+num_workers: 4
+
+optimizer:
+  name: "EASGD"
+  lr: 0.01
+  momentum: 0.9
+  weight_decay: 0.0001
+  inner_lr: 0.01
+  inner_steps: 20
+  thermal_noise: 0.001
+  projection_freq: 10
+  # k_sparsity: 0.2
+  gamma: 0.01
+  kfac_update_freq: 50
+  k_sparsity_schedule:
+    strategy: "linear"  # Options: linear, exponential, cosine, step, cyclic
+    initial_k: 0.5
+    final_k: 0.05
+    total_steps: 2000
+    warmup_steps: 200
+
+training:
+  epochs: 5
+  scheduler:
+    type: "multistep"
+    milestones: [20, 35]
+    gamma: 0.2
+
+logging:
+  log_dir: "./logs/mnist"
+  use_tensorboard: true
