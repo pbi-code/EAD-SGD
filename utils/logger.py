@@ -84,9 +84,6 @@ class Logger:
             # Log overfitting ratio
             overfitting_ratio = (train_acc - test_acc) / train_acc if train_acc > 0 else 0
             self.writer.add_scalar('Generalization/OverfittingRatio', overfitting_ratio, epoch)
-
-            # Log k-sparsity if using EASGD with dynamic scheduling
-            self.writer.add_scalar('K-Sparsity/Current', k_sparsity, epoch)
         
         # Save to JSON file
         with open(self.log_file, 'w') as f:
