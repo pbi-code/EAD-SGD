@@ -9,7 +9,7 @@ import gc
 
 from models.lenet import LeNet
 from models.resnet import ResNet18
-from data.loaders import get_dataloader
+from loader.loaders import get_dataloader
 from training.train import Trainer
 from training.EASGD_optimizer import EA_SGD
 from training.EntropySGD import EntropySGD
