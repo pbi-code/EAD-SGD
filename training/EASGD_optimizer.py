@@ -63,6 +63,12 @@ class EA_SGD(torch.optim.Optimizer):
         self.initial_gamma = gamma
         self.gamma_growth_rate = 1.001  # Increase gamma by 0.1% each step
 
+        # Pre-allocate noise buffers for SGLD
+        self.noise_buffers = []
+        for group in self.param_groups:
+            for p in group['params']:
+                self.noise_buffers.append(torch.empty_like(p.data))
+
         # Initialize k-sparsity scheduler
         if k_sparsity_schedule is None:
             # Default schedule: linear decay from 0.5 to 0.1 over 1000 steps
@@ -189,16 +195,23 @@ class EA_SGD(torch.optim.Optimizer):
         """
         # Store original parameters
         original_params = [p.detach().clone() for p in model.parameters()]
-        
-        # Sample a mini-batch for SGLD
-        data, target = next(iter(data_loader))
-        data, target = data.to(self.device), target.to(self.device)
+
+        # Create a persistent iterator
+        data_iter = iter(data_loader)
         
         # Initialize lists to store gradients
         all_gradients = []
         
         # Perform SGLD sampling
         for step in range(group['inner_steps']):
+            try:
+                data, target = next(data_iter)
+            except StopIteration:
+                data_iter = iter(data_loader)
+                data, target = next(data_iter)
+            
+            data, target = data.to(self.device), target.to(self.device)
+        
             # Forward pass
             output = model(data)
             loss = nn.functional.cross_entropy(output, target)
@@ -206,7 +219,7 @@ class EA_SGD(torch.optim.Optimizer):
             # Add local entropy regularizer
             for i, p in enumerate(model.parameters()):
                 if p.grad is not None:
-                    p.grad += group['gamma'] * (p.data - original_params[i].data)
+                    p.grad.add_(group['gamma'] * (p.data - original_params[i].data))
             
             # Compute gradient
             loss.backward()
@@ -221,9 +234,11 @@ class EA_SGD(torch.optim.Optimizer):
             
             # SGLD update: gradient step + noise
             with torch.no_grad():
-                for p in model.parameters():
+                for i, p in enumerate(model.parameters()):
                     if p.grad is not None:
-                        noise = torch.randn_like(p) * np.sqrt(2 * group['inner_lr']) * group['thermal_noise']
+                        # Use pre-allocated buffer
+                        self.noise_buffers[i].normal_()
+                        noise = self.noise_buffers[i] * np.sqrt(2 * group['inner_lr']) * group['thermal_noise']
                         p.data -= group['inner_lr'] * p.grad + noise
             
             # Zero gradients for next step
