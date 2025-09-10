@@ -3,9 +3,10 @@ import subprocess
 import json
 import numpy as np
 import matplotlib.pyplot as plt
-import os
-import time
+import os, sys, gc
+import time, random, torch
 from collections import defaultdict
+from tqdm import tqdm
 
 # Configuration
 database = "mnist"
@@ -13,21 +14,20 @@ database = "mnist"
 # optimizers = ["sgd", "sgdm", "adam", "easgd"]
 optimizers = ["sgd", "sgdm"]
 
-epochs_range = list(range(10, 101, 10))  # 10 to 100 in steps of 10
+# Produce logarithmically-spaced epochs array
+a1 = 10.**np.arange(1, 3)
+a2 = np.arange(1, 10, 2)
+epochs_range = np.outer(a1, a2).astype(np.int64).flatten().tolist()
+# epochs_range = list(range(10, 101, 10))  # 10 to 100 in steps of 10
 num_runs = 3  # Number of runs per configuration
-
-# Base config files for each optimizer
-# config_files = {
-#     "SGD": "configs/mnist_sgd.yaml",
-#     "SGDM": "configs/mnist_sgdm.yaml", 
-#     "Adam": "configs/mnist_adam.yaml",
-#     "EASGD": "configs/mnist_easgd.yaml"
-# }
+print(f"Your experiment will compare optimizers {optimizers} during task {database}")
+print(f"Your experiment will run each optimizer for {epochs_range} epochs with {num_runs} runs each")
+input("Are you ok with these settings? Press Enter to continue...")
 
 # Results storage
 results = defaultdict(lambda: defaultdict(list))
 
-def run_experiment(optimizer_name, epochs, run_id):
+def run_experiment(optimizer_name, epochs, run_id, pbar=None):
     """Run a single experiment with modified epochs"""
     # Determine config path
     config_path = f"configs/{database}_{optimizer_name}.yaml"
@@ -35,6 +35,18 @@ def run_experiment(optimizer_name, epochs, run_id):
     # Load the base config
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
+
+    # Set seeds for reproducibility
+    seed = run_id  # or use a fixed seed per run
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    
+    # Update progress bar description
+    if pbar:
+        pbar.set_description(f"Running {optimizer_name}-{epochs}epochs-run{run_id}")
     
     # Create a unique experiment name
     # optimizer_name = os.path.basename(config_path).replace(f"{database}_", '').replace('.yaml', '')
@@ -54,8 +66,8 @@ def run_experiment(optimizer_name, epochs, run_id):
     try:
         print("trying subprocess...")
         result = subprocess.run([
-            'python', 'main.py', '--config', temp_config_path
-        ], capture_output=True, text=True, timeout=600)  # 10-minute timeout
+            'python', 'main.py', '--silent', '--config', temp_config_path
+        ], capture_output=True, text=True, timeout=1800)  # 30-minute timeout
 
         print(f"Subprocess completed with return code: {result.returncode}")
 
@@ -80,7 +92,7 @@ def run_experiment(optimizer_name, epochs, run_id):
             return None, None
             
     except subprocess.TimeoutExpired:
-        print(f"Experiment {experiment_name} timed out after 10 minutes")
+        print(f"Experiment {experiment_name} timed out after 30 minutes")
         return None, None
     except Exception as e:
         print(f"Error running {experiment_name}: {e}")
@@ -92,23 +104,33 @@ def run_experiment(optimizer_name, epochs, run_id):
         # Clean up temporary config
         if os.path.exists(temp_config_path):
             os.remove(temp_config_path)
+        # Update progress bar
+        if pbar:
+            pbar.update(1)
 
 def main():
-    # Run all experiments
-    for optimizer in optimizers:
-        if not os.path.exists(f"configs/{database}_{optimizer}.yaml"):
-            print(f"Config file not found: configs/{database}_{optimizer}.yaml")
-            continue
-            
-        for epochs in epochs_range:
-            for run in range(1, num_runs + 1):
-                sharpness, accuracy = run_experiment(optimizer, epochs, run)
+    # Calculate total number of experiments
+    total_experiments = len(optimizers) * len(epochs_range) * num_runs
+    
+    # Create progress bar
+    with tqdm(total=total_experiments, desc="Overall Progress", unit="exp") as pbar:
+        # Run all experiments
+        for optimizer in optimizers:
+            if not os.path.exists(f"configs/{database}_{optimizer}.yaml"):
+                print(f"Config file not found: configs/{database}_{optimizer}.yaml")
+                # Update progress bar for skipped experiments
+                pbar.update(len(epochs_range) * num_runs)
+                continue
                 
-                if sharpness is not None and accuracy is not None:
-                    results[optimizer][epochs].append((sharpness, accuracy))
-                
-                # Add a small delay between runs
-                time.sleep(2)
+            for epochs in epochs_range:
+                for run in range(1, num_runs + 1):
+                    sharpness, accuracy = run_experiment(optimizer, epochs, run, pbar)
+                    
+                    if sharpness is not None and accuracy is not None:
+                        results[optimizer][epochs].append((sharpness, accuracy))
+                    
+                    # Add a small delay between runs
+                    time.sleep(2)
     
     # Save results
     with open('sharpness_results.json', 'w') as f:

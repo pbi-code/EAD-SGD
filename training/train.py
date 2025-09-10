@@ -20,7 +20,7 @@ class Trainer:
         self.logger = logger
         self.config = config
         
-        # Register hooks for K-FAC
+        # Register hooks for KFAC
         self.model.register_hooks()
         
         # Loss function

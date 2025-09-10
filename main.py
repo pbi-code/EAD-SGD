@@ -82,28 +82,38 @@ def get_optimizer(optimizer_config, model):
             }
         )
 
-def main():
+def main(device=None, loader=None):
     print("Starting main.py")
     parser = argparse.ArgumentParser(description='EAD-SGD Training')
     parser.add_argument('--config', type=str, default='configs/base.yaml',
                         help='Path to config file')
     parser.add_argument('--resume', type=str, default=None,
                         help='Path to checkpoint to resume from')
+    parser.add_argument('--silent', type=bool, action=argparse.BooleanOptionalAction)
+    parser.set_defaults(silent=False)
     args = parser.parse_args()
-    
+    silent = args.silent
+
     # Load configuration
-    print("Setting up...")
     config = load_config(args.config)
+    if not silent:
+        print("Setting up...")
     
-    # Set device
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}")
+    # Set device and data loaders if they aren't passed in:
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if not silent:
+        print(f"Using device: {device}")
     
     # Create data loaders
-    train_loader, test_loader = get_dataloader(
-        config['dataset'], config['data_path'], 
-        config['batch_size'], config['num_workers']
-    )
+    if loader is None:
+        train_loader, test_loader = get_dataloader(
+            config['dataset'], config['data_path'], 
+            config['batch_size'], config['num_workers']
+        )
+    else:
+        train_loader = loader[0]
+        test_loader = loader[1]
 
     # Dataset configuration
     if config['dataset'] == 'CIFAR10':
@@ -142,7 +152,8 @@ def main():
     with open(os.path.join(log_dir, 'config.yaml'), 'w') as f:
         yaml.dump(config, f, default_flow_style=False)
 
-    print("Setup complete!")
+    if not silent:
+        print("Setup complete!")
     
     # Handle resume if specified
     if args.resume:
@@ -157,12 +168,14 @@ def main():
         print(f"Resumed from checkpoint: {args.resume}")
     
     try:
-        print("Beginning training...")
+        if not silent:
+            print("Beginning training...")
         # Create trainer and start training
         trainer = Trainer(model, optimizer, train_loader, test_loader, 
                          device, logger, config)
         trainer.train()
-        print("Training Complete!")
+        if not silent:
+            print("Training Complete!")
     except Exception as e:
         print(f"Training failed with error: {e}")
         import traceback
@@ -182,7 +195,8 @@ def main():
             torch.cuda.empty_cache()
         
         logger.close()
-        print("Cleanup completed, exiting...")
+        if not silent:
+            print("Cleanup completed, exiting...")
 
     sys.exit(0)
 
