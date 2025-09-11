@@ -81,39 +81,37 @@ def get_optimizer(optimizer_config, model):
                 'g1': optimizer_config['g1']
             }
         )
-
-def main(device=None, loader=None):
-    print("Starting main.py")
-    parser = argparse.ArgumentParser(description='EAD-SGD Training')
-    parser.add_argument('--config', type=str, default='configs/base.yaml',
-                        help='Path to config file')
-    parser.add_argument('--resume', type=str, default=None,
-                        help='Path to checkpoint to resume from')
-    parser.add_argument('--silent', type=bool, action=argparse.BooleanOptionalAction)
-    parser.set_defaults(silent=False)
-    args = parser.parse_args()
-    silent = args.silent
-
+    
+def run_experiment(config_path, device=None, loaders=None, silent=False, resume=None):
+    """
+    Run a single experiment with optional shared resources
+    
+    Args:
+        config_path: Path to config file
+        device: Optional shared device
+        loaders: Optional shared data loaders (train_loader, test_loader)
+        silent: If True, reduce output verbosity
+        resume: Path to checkpoint to resume from
+    """
     # Load configuration
-    config = load_config(args.config)
+    config = load_config(config_path)
     if not silent:
         print("Setting up...")
     
-    # Set device and data loaders if they aren't passed in:
+    # Set device if not provided
     if device is None:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if not silent:
         print(f"Using device: {device}")
     
-    # Create data loaders
-    if loader is None:
+    # Create data loaders if not provided
+    if loaders is None:
         train_loader, test_loader = get_dataloader(
             config['dataset'], config['data_path'], 
             config['batch_size'], config['num_workers']
         )
     else:
-        train_loader = loader[0]
-        test_loader = loader[1]
+        train_loader, test_loader = loaders
 
     # Dataset configuration
     if config['dataset'] == 'CIFAR10':
@@ -156,8 +154,8 @@ def main(device=None, loader=None):
         print("Setup complete!")
     
     # Handle resume if specified
-    if args.resume:
-        checkpoint = torch.load(args.resume)
+    if resume:
+        checkpoint = torch.load(resume)
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
@@ -165,7 +163,7 @@ def main(device=None, loader=None):
         if trainer.scheduler is not None and 'scheduler_state_dict' in checkpoint:
             trainer.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 
-        print(f"Resumed from checkpoint: {args.resume}")
+        print(f"Resumed from checkpoint: {resume}")
     
     try:
         if not silent:
@@ -176,10 +174,17 @@ def main(device=None, loader=None):
         trainer.train()
         if not silent:
             print("Training Complete!")
+        
+        # Return results for batch processing
+        return {
+            'sharpness': trainer.final_sharpness if hasattr(trainer, 'final_sharpness') else None,
+            'accuracy': trainer.final_accuracy if hasattr(trainer, 'final_accuracy') else None
+        }
     except Exception as e:
         print(f"Training failed with error: {e}")
         import traceback
         traceback.print_exc()
+        return None
     finally:
         # Clean up DataLoader workers
         if hasattr(train_loader, 'dataset') and hasattr(train_loader.dataset, 'close'):
@@ -198,12 +203,23 @@ def main(device=None, loader=None):
         if not silent:
             print("Cleanup completed, exiting...")
 
-    sys.exit(0)
 
-    # # Create trainer and start training
-    # trainer = Trainer(model, optimizer, train_loader, test_loader, 
-    #                  device, logger, config)
-    # trainer.train()
+def main(device=None, loader=None):
+    print("Starting main.py")
+    parser = argparse.ArgumentParser(description='EAD-SGD Training')
+    parser.add_argument('--config', type=str, default='configs/base.yaml',
+                        help='Path to config file')
+    parser.add_argument('--resume', type=str, default=None,
+                        help='Path to checkpoint to resume from')
+    parser.add_argument('--silent', type=bool, action=argparse.BooleanOptionalAction,
+                         help='Reduce output verbosity')
+    parser.add_argument('--repeat', action=argparse.BooleanOptionalAction,
+                        help='Indicate this is part of a batch run (uses shared resources)')
+    parser.set_defaults(silent=False, repeat=False)
+    args = parser.parse_args()
+    
+    # Single run
+    run_experiment(args.config, silent=args.silent, resume=args.resume, repeat=args.repeat)
     
 if __name__ == '__main__':
     main()

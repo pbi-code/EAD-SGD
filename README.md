@@ -35,11 +35,11 @@ cd EAD-SGD
 1. Training on CIFAR-10:
 ```python main.py --config configs/cifar10.yaml```
 
-2. Training on MNIST:
-```python main.py --config configs/mnist.yaml```
+2. Training on MNIST using optimizer {optimizer_name}:
+```python main.py --config configs/mnist_{optimizer_name}.yaml```
 
 3. Resuming from a checkpoint:
-```python main.py --config configs/cifar10.yaml --resume logs/cifar10/best_model.pth``` 
+```python main.py --config configs/{configuration}.yaml --resume logs/{configuration}/best_model.pth``` 
 
 ## Results
 
@@ -52,7 +52,7 @@ If you use this code in your research, please cite:
   title = {EAD-SGD: Entropy Anisotropy Dual Stochastic Gradient Descent},
   author = {Prahlad Iyengar},
   year = {2025},
-  url = {https://github.com/PBJacket/EAD-SGD}
+  url = {https://github.com/pbi-code/EAD-SGD}
 }
 
 ## License

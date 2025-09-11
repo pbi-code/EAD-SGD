@@ -11,9 +11,9 @@ optimizer:
   momentum: 0.9
   weight_decay: 0.0001
   inner_lr: 0.01
-  inner_steps: 20
+  inner_steps: 10
   thermal_noise: 0.001
-  projection_freq: 10
+  projection_freq: 25
   # k_sparsity: 0.2
   gamma: 0.01
   kfac_update_freq: 50

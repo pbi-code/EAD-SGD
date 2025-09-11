@@ -1,31 +1,67 @@
 import yaml
-import subprocess
 import json
 import numpy as np
 import matplotlib.pyplot as plt
-import os, sys, gc
-import time, random, torch
+import os
+import time
+import random
+import torch
+import torch.multiprocessing as mp
 from collections import defaultdict
 from tqdm import tqdm
+from functools import partial
+import tempfile
 
 # Configuration
 database = "mnist"
-# optimizers = ["sgd", "sgdm", "adam", "entropysgd", "easgd"]
-# optimizers = ["sgd", "sgdm", "adam", "easgd"]
 optimizers = ["sgd", "sgdm"]
+# optimizers = ["sgd", "sgdm", "adam", "easgd"]
+# optimizers = ["sgd", "sgdm", "adam", "entropysgd", "easgd"]
 
 # Produce logarithmically-spaced epochs array
 a1 = 10.**np.arange(1, 3)
 a2 = np.arange(1, 10, 2)
 epochs_range = np.outer(a1, a2).astype(np.int64).flatten().tolist()
-# epochs_range = list(range(10, 101, 10))  # 10 to 100 in steps of 10
 num_runs = 3  # Number of runs per configuration
+
 print(f"Your experiment will compare optimizers {optimizers} during task {database}")
 print(f"Your experiment will run each optimizer for {epochs_range} epochs with {num_runs} runs each")
 input("Are you ok with these settings? Press Enter to continue...")
 
-# Results storage
+# Shared data storage
+shared_data = {}
+shared_model_class = None
 results = defaultdict(lambda: defaultdict(list))
+
+def init_worker(database_name, model_name, device_name):
+    """Initialize a worker process with shared data"""
+    import torch
+    from models import get_model
+    from data.loaders import get_data_loaders
+    
+    # Set device
+    device = torch.device(device_name)
+    
+    # Load data (once per process)
+    train_loader, val_loader, test_loader = get_data_loaders(
+        database_name,
+        batch_size=64  # You might want to make this configurable
+    )
+    
+    # Get model class (not instance)
+    model_class = get_model(model_name)
+    
+    # Store in process-global variables
+    global process_data, process_model_class, process_device
+    process_data = {
+        'train_loader': train_loader,
+        'val_loader': val_loader,
+        'test_loader': test_loader
+    }
+    process_model_class = model_class
+    process_device = device
+    
+    print(f"Worker initialized with {database_name} and device {device_name}")
 
 def run_experiment(optimizer_name, epochs, run_id, pbar=None):
     """Run a single experiment with modified epochs"""
