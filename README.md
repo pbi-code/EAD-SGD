@@ -21,7 +21,7 @@ This repository implements the EAD-SGD optimizer, which combines:
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/PBJacket/EAD-SGD.git
+git clone https://github.com/pbi-code/EAD-SGD.git
 cd EAD-SGD
 ```
 

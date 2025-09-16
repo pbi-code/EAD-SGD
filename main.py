@@ -1,6 +1,6 @@
 # main.py
 import argparse, os, sys, yaml, gc, torch, json
-from loader import get_dataloader
+from loader.loaders import get_dataloader
 from utils.logger import Logger
 from training.train import Trainer
 from training.EASGD_optimizer import EA_SGD
