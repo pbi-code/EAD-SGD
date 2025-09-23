@@ -19,7 +19,7 @@ def init_shared_resources(cfg_path: str):
     """
     Called once per worker (via Pool initializer).  It reads the yaml
     configuration, builds the device, the two data loaders and a *factory*
-    that can create a brand‑new model instance on demand.
+    that can create a brand new model instance on demand.
     """
     import yaml
     from models.lenet import LeNet
