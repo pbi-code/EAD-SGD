@@ -1,11 +1,17 @@
 import yaml
-import subprocess
 import json
 import numpy as np
 import matplotlib.pyplot as plt
 import os
 import time
+import random
+import torch
+import torch.multiprocessing as mp
 from collections import defaultdict
+from tqdm import tqdm
+from functools import partial
+import tempfile
+
 
 # Configuration
 database = "mnist"
@@ -13,16 +19,15 @@ database = "mnist"
 # optimizers = ["sgd", "sgdm", "adam", "easgd"]
 optimizers = ["sgd", "sgdm"]
 
-epochs_range = list(range(10, 101, 10))  # 10 to 100 in steps of 10
+# Produce logarithmically-spaced epochs array
+a1 = 10.**np.arange(1, 3)
+a2 = np.arange(1, 10, 2)
+epochs_range = np.outer(a1, a2).astype(np.int64).flatten().tolist()
 num_runs = 3  # Number of runs per configuration
 
-# Base config files for each optimizer
-# config_files = {
-#     "SGD": "configs/mnist_sgd.yaml",
-#     "SGDM": "configs/mnist_sgdm.yaml", 
-#     "Adam": "configs/mnist_adam.yaml",
-#     "EASGD": "configs/mnist_easgd.yaml"
-# }
+print(f"Your experiment will compare optimizers {optimizers} during task {database}")
+print(f"Your experiment will run each optimizer for {epochs_range} epochs with {num_runs} runs each")
+input("Are you ok with these settings? Press Enter to continue...")
 
 # Results storage
 results = defaultdict(lambda: defaultdict(list))
